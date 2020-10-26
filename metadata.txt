@@ -17,3 +17,4 @@ tags=pipelineml,geopackage
 homepage=https://pipelineml.org/
 tracker=https://github.com/ogc-pipelineml/pml-geopackager/issues
 icon=icon.svg
+hasProcessingProvider=yes
