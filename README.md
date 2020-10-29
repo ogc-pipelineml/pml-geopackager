@@ -1,1 +1,1 @@
-PipelineML GeoPackager is a plugin allows [QGIS](https://www.qgis.org/en/site/) to natively consume and store [PipelineML](https://pipelineml.org/) data for GIS analysis by reading a PipelineML file and translating its contents into a [GeoPackage](https://www.geopackage.org/).
+PipelineML GeoPackager is a plugin that allows [QGIS](https://www.qgis.org/en/site/) to natively consume and store [PipelineML](https://pipelineml.org/) data for GIS analysis by reading a PipelineML file and translating its contents into a [GeoPackage](https://www.geopackage.org/).
