@@ -22,6 +22,9 @@ This module defines the 'PipelineMLGeoPackagerAlgorithm' class.
 # Import (from the standard 'os' module) the 'path' sub-module.
 from os import path
 
+# Import (from the 'osgeo' package) the 'gdal' sub-module.
+from osgeo import gdal
+
 # Import (from the 'core' module in the 'qgis' package) the
 # 'QgsProcessingAlgorithm', 'QgsProcessingParameterFile',
 # and 'QgsProcessingParameterFileDestination' classes.
@@ -127,4 +130,23 @@ class PipelineMLGeoPackagerAlgorithm(QgsProcessingAlgorithm):
         """
         This method runs the algorithm using the specified parameters.
         """
-        return {}
+
+        # Retrieve the value of the output parameter
+        # (i.e., the GeoPackage file destination).
+        filePath = self.parameterAsFileOutput(parameters, 'OUTPUT', context)
+
+        # Fetch the GDAL driver for the GeoPackage file format.
+        driver = gdal.GetDriverByName('GPKG')
+
+        # Use the driver to create a new dataset (i.e., a new
+        # GeoPackage file).  Every argument except the first is
+        # related to raster dimensions and does not apply to
+        # vector-only datasets (such as the one we're creating).
+        dataset = driver.Create(filePath, 0, 0, 0, gdal.GDT_Unknown)
+
+        # Close the dataset to ensure that all data is written
+        # and resources are recovered (file handle closed, etc.).
+        dataset = None
+
+        # Return the output.
+        return {'OUTPUT': filePath}
