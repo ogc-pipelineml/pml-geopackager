@@ -19,14 +19,13 @@
 This package encapsulates the PipelineML GeoPackager plugin for QGIS.
 """
 
-# Import (from the 'plugin' module within this
-# package) the 'PipelineMLGeoPackagerPlugin' class.
+from qgis.gui import QgisInterface
 from .plugin import PipelineMLGeoPackagerPlugin
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # Define the required 'classFactory' function,
 # which is called when the plugin is loaded.
-def classFactory(iface):
+def classFactory(iface: QgisInterface) -> PipelineMLGeoPackagerPlugin:
     """
     This function returns an instance of the plugin class.
     """

@@ -19,12 +19,8 @@
 This module defines the 'PipelineMLGeoPackagerPlugin' class.
 """
 
-# Import (from the 'core' module in the
-# 'qgis' package) the 'QgsApplication' class.
 from qgis.core import QgsApplication
-
-# Import (from the 'provider' module within this
-# package) the 'PipelineMLGeoPackagerProvider' class.
+from qgis.gui import QgisInterface
 from .provider import PipelineMLGeoPackagerProvider
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -37,7 +33,7 @@ class PipelineMLGeoPackagerPlugin:
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # Define the required '__init__' method (i.e., the constructor),
     # which is called when a new object of this class is instantiated.
-    def __init__(self, iface):
+    def __init__(self, iface: QgisInterface) -> None:
         """
         This method saves a reference to the QGIS interface.
         """
@@ -46,7 +42,7 @@ class PipelineMLGeoPackagerPlugin:
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # Define the required 'initGui' method,
     # which is called when the plugin is loaded.
-    def initGui(self):
+    def initGui(self) -> None:
         """
         This method initializes a connection to the GUI.
         """
@@ -61,7 +57,7 @@ class PipelineMLGeoPackagerPlugin:
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # Define the required 'unload' method, which
     # is called when the plugin is unloaded.
-    def unload(self):
+    def unload(self) -> None:
         """
         This method cleans up the GUI.
         """

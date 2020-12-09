@@ -19,19 +19,9 @@
 This module defines the 'PipelineMLGeoPackagerProvider' class.
 """
 
-# Import (from the standard 'os' module) the 'path' sub-module.
 from os import path
-
-# Import (from the 'core' module in the 'qgis'
-# package) the 'QgsProcessingProvider' class.
 from qgis.core import QgsProcessingProvider
-
-# Import (from the 'QtGui' module in the
-# 'qgis.PyQt' package) the 'QIcon' class.
 from qgis.PyQt.QtGui import QIcon
-
-# Import (from the 'algorithm' module within this
-# package) the 'PipelineMLGeoPackagerAlgorithm' class.
 from .algorithm import PipelineMLGeoPackagerAlgorithm
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -46,7 +36,7 @@ class PipelineMLGeoPackagerProvider(QgsProcessingProvider):
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # Override the 'id' method, which should return
     # a short, non-localized, character-only string.
-    def id(self):
+    def id(self) -> str:
         """
         This method returns a string that
         uniquely identifies the provider.
@@ -56,7 +46,7 @@ class PipelineMLGeoPackagerProvider(QgsProcessingProvider):
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # Override the 'name' method, which should
     # return a short, localized string.
-    def name(self):
+    def name(self) -> str:
         """
         This method returns a string that describes the provider.
         """
@@ -64,16 +54,18 @@ class PipelineMLGeoPackagerProvider(QgsProcessingProvider):
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # Override the 'icon' method.
-    def icon(self):
+    def icon(self) -> QIcon:
         """
         This method returns an icon for the provider.
         """
-        return QIcon(path.join(path.dirname(__file__), 'pml.svg'))
+        name = path.dirname(__file__)
+        name = path.join(name, 'pml.svg')
+        return QIcon(name)
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # Override the 'loadAlgorithms' method, which
     # should register all associated algorithms.
-    def loadAlgorithms(self):
+    def loadAlgorithms(self) -> None:
         """
         This method loads all algorithms belonging to this provider.
         """
