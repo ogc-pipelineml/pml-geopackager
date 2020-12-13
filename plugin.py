@@ -19,9 +19,11 @@
 This module defines the 'PipelineMLGeoPackagerPlugin' class.
 """
 
+
 from qgis.core import QgsApplication
 from qgis.gui import QgisInterface
 from .provider import PipelineMLGeoPackagerProvider
+
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # Define the 'PipelineMLGeoPackagerPlugin' class.
@@ -51,7 +53,7 @@ class PipelineMLGeoPackagerPlugin:
         # processing registry, saving a reference to
         # the provider so that it can be removed from
         # the registry later (via the 'unload' method).
-        self.provider = PipelineMLGeoPackagerProvider()
+        self.provider = PipelineMLGeoPackagerProvider(self.iface)
         QgsApplication.processingRegistry().addProvider(self.provider)
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
