@@ -19,42 +19,178 @@
 This module defines the 'PipelineMLGeoPackagerAlgorithm' class.
 """
 
+
 from os import path
 from threading import Event
 from xml.parsers import expat
 from osgeo import gdal
 from osgeo import ogr
+from osgeo.osr import SpatialReference
 from qgis.core import (
   QgsProcessingAlgorithm, QgsProcessingContext, QgsProcessingFeedback,
   QgsProcessingParameterFile, QgsProcessingParameterFileDestination)
+from qgis.gui import QgisInterface
 from qgis.PyQt.QtGui import QIcon
 
-# This list serves as a stack of XML elements.
-_stack = []
-
-# This event is used to signal completion of the XML parsing thread.
-_event = Event()
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# Define the 'handle_element_start' function, which is called (by the
+# Define the '_reset_globals' function, which
+# should be called every time the algorithm runs.
+def _reset_globals() -> None:
+    """
+    This function resets global variables for the algorithm.
+    """
+
+    # This list serves as a stack of XML element names.
+    global _stack
+    _stack = []
+
+    # This dictionary keeps track of layers
+    # that have been created in the GeoPackage.
+    global _layers
+    _layers = {}
+
+    # This dictionary stores names and values
+    # of fields for the current feature.
+    global _fields
+    _fields = {}
+
+    # This event is used to signal
+    # completion of the XML parsing thread.
+    global _event
+    _event = Event()
+
+    # This object represents the default spatial
+    # reference system (SRS) of the GeoPackage.
+    global _srs
+    _srs = SpatialReference()
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# Define the '_handle_element_start' function, which is called (by the
 # XML parser) for the start of every element in the PipelineML file.
-def handle_element_start(name: str, attributes: dict) -> None:
+def _handle_element_start(name: str, attributes: dict) -> None:
+    """
+    This function processes the start-tag of a PipelineML element.
+    """
+
     global _feedback
     global _dataset
-    if len(_stack) > 0 and _stack[-1] == 'component':
+    s = ''
+    for i in range(len(_stack)):
+        s += '.'
+    _feedback.pushDebugInfo(s + name + ' (start)')
+
+    # If the stack is empty, all that's needed is to
+    # push the name of this element onto the stack (to
+    # indicate that this element is now being processed).
+    if len(_stack) < 1:
+        _stack.append(name)
+        return
+
+    # If 'component' is on top of the stack,
+    # this element must represent a feature.
+    # If necessary, create the layer for it.
+    if _stack[-1] == 'component' and name not in _layers:
         _feedback.pushInfo('Creating ' + name + ' layer')
-        _dataset.CreateLayer(name, None, ogr.wkbUnknown)
+        _layers[name] = _dataset.CreateLayer(name, _srs, ogr.wkbUnknown)
+
+    # Push the name of this element onto the stack to
+    # indicate that this element is now being processed.
     _stack.append(name)
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# Define the 'handle_element_end' function, which is called (by the
+# Define the '_handle_character_data' function, which is called
+# (by the XML parser) for character data in the PipelineML file.
+def _handle_character_data(data: str) -> None:
+    """
+    This function processes the content of a PipelineML element.
+    """
+
+    # Ignore whitespace.
+    if data.isspace():
+        return
+
+    global _feedback
+    s = ''
+    for i in range(len(_stack)):
+        s += '.'
+    _feedback.pushDebugInfo(s + 'Character Data: "' + data + '"')
+
+    # If 'defaultCRS' is on top of the stack, this element specifies
+    # the default coordinate reference system for the dataset.
+    if len(_stack) > 1 and _stack[-1] == 'defaultCRS':
+        name = data.partition(' ')[2].strip('()')
+        _srs.SetFromUserInput(name)
+        return
+
+    # If 'location' is third from the top of the stack, this element
+    # should represent a set of geospatial coordinates in GML format.
+    if len(_stack) > 3 and _stack[-3] == 'location':
+        # The element name second from the top
+        # should indicate the geometry type.
+        gml_type = _stack[-2].split(':', 1)[-1]
+        if gml_type == 'Point':
+            wkb_type = ogr.wkbPoint
+        elif gml_type == 'LineString':
+            wkb_type = ogr.wkbLineString
+        elif gml_type == 'Polygon':
+            wkb_type = ogr.wkbPolygon
+        else:
+            _feedback.reportError('Unknown geometry type: ' + gml_type)
+            wkb_type = ogr.wkbUnknown
+
+        # Create a geometry object from the GML coordinates.
+        _feedback.pushInfo('Creating ' + gml_type + ' geometry')
+        geom = ogr.Geometry(wkb_type)
+        pos_list = data.split()
+        for i in range(0, len(pos_list), 2):
+            x = float(pos_list[i])
+            y = float(pos_list[i + 1])
+            geom.AddPoint_2D(x, y)
+        _fields['location'] = geom
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# Define the '_handle_element_end' function, which is called (by the
 # XML parser) for the end of every element in the PipelineML file.
-def handle_element_end(name: str) -> None:
+def _handle_element_end(name: str) -> None:
+    """
+    This function processes the end-tag of a PipelineML element.
+    """
+
+    global _feedback
+    global _fields
+    s = ''
+    for i in range(len(_stack) - 1):
+        s += '.'
+    _feedback.pushDebugInfo(s + name + ' (end)')
+
+    # If 'component' is second from the top of the
+    # stack (just beneath the name of this element),
+    # this element must represent a feature.
+    if len(_stack) > 2 and _stack[-2] == 'component':
+        # Use the schema information from the appropriate
+        # layer to create a new feature object.
+        _feedback.pushInfo('Creating ' + name + ' feature')
+        feature_defn = _layers[name].GetLayerDefn()
+        feature = ogr.Feature(feature_defn)
+
+        # Set the feature geometry from the 'location' field.
+        feature.SetGeometryDirectly(_fields['location'])
+
+        # Add the feature to the appropriate layer.
+        _feedback.pushInfo('Adding feature to ' + name + ' layer')
+        _layers[name].CreateFeature(feature)
+        feature.Destroy()
+        _fields = {}
+
+    # Pop the stack to indicate that this
+    # element is no longer being processed.
     _stack.pop()
 
     # If the stack is empty, XML parsing
     # is complete.  Signal the main thread.
     if len(_stack) < 1:
+        _feedback.pushDebugInfo('XML parsing completed')
         _event.set()
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -65,6 +201,16 @@ class PipelineMLGeoPackagerAlgorithm(QgsProcessingAlgorithm):
     This class implements the processing algorithm
     for the PipelineML GeoPackager QGIS plugin.
     """
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # Override the '__init__' method (i.e., the constructor), which
+    # is called when a new object of this class is instantiated.
+    def __init__(self, iface: QgisInterface) -> None:
+        """
+        This method saves a reference to the QGIS interface.
+        """
+        super().__init__()
+        self.iface = iface
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # Override the 'groupId' method, which should return a fixed,
@@ -124,7 +270,7 @@ class PipelineMLGeoPackagerAlgorithm(QgsProcessingAlgorithm):
         """
         This method creates a new instance of the algorithm class.
         """
-        return PipelineMLGeoPackagerAlgorithm()
+        return PipelineMLGeoPackagerAlgorithm(self.iface)
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # Override the 'initAlgorithm' method, which should add
@@ -156,6 +302,9 @@ class PipelineMLGeoPackagerAlgorithm(QgsProcessingAlgorithm):
         This method runs the algorithm using the specified parameters.
         """
 
+        # Reset the values of global variables.
+        _reset_globals()
+
         # Retrieve the value of the output parameter
         # (i.e., the GeoPackage file destination).
         gpkg_path = self.parameterAsFileOutput(parameters, 'OUTPUT', context)
@@ -182,16 +331,26 @@ class PipelineMLGeoPackagerAlgorithm(QgsProcessingAlgorithm):
             # called by the XML parser populate the GeoPackage
             # based on the PipelineML file's contents.)
             parser = expat.ParserCreate()
-            parser.StartElementHandler = handle_element_start
-            parser.EndElementHandler = handle_element_end
+            parser.buffer_text = True
+            parser.StartElementHandler = _handle_element_start
+            parser.CharacterDataHandler = _handle_character_data
+            parser.EndElementHandler = _handle_element_end
             parser.ParseFile(pml_file)
 
         # Wait for the XML parsing thread to signal completion.
-        _event.wait()
+        while not _event.wait(1) and not feedback.isCanceled():
+            pass
 
         # Close the dataset to ensure that all data is written
         # and resources are recovered (file handle closed, etc.).
         _dataset = None
+
+        # Add the GeoPackage layers to the current project.
+        # (This does not work.  More research required.)
+#        for name in list(_layers):
+#            layer_path = gpkg_path + '|layername=' + name
+#            feedback.pushDebugInfo('Loading ' + layer_path)
+#            self.iface.addVectorLayer(layer_path, name, 'ogr')
 
         # Return the output.
         return {'OUTPUT': gpkg_path}
