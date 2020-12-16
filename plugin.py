@@ -53,7 +53,7 @@ class PipelineMLGeoPackagerPlugin:
         # processing registry, saving a reference to
         # the provider so that it can be removed from
         # the registry later (via the 'unload' method).
-        self.provider = PipelineMLGeoPackagerProvider(self.iface)
+        self.provider = PipelineMLGeoPackagerProvider()
         QgsApplication.processingRegistry().addProvider(self.provider)
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #

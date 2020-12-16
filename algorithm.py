@@ -29,7 +29,6 @@ from osgeo.osr import SpatialReference
 from qgis.core import (
   QgsProcessingAlgorithm, QgsProcessingContext, QgsProcessingFeedback,
   QgsProcessingParameterFile, QgsProcessingParameterFileDestination)
-from qgis.gui import QgisInterface
 from qgis.PyQt.QtGui import QIcon
 
 
@@ -203,16 +202,6 @@ class PipelineMLGeoPackagerAlgorithm(QgsProcessingAlgorithm):
     """
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-    # Override the '__init__' method (i.e., the constructor), which
-    # is called when a new object of this class is instantiated.
-    def __init__(self, iface: QgisInterface) -> None:
-        """
-        This method saves a reference to the QGIS interface.
-        """
-        super().__init__()
-        self.iface = iface
-
-    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # Override the 'groupId' method, which should return a fixed,
     # non-localized string containing only lowercase alphanumeric
     # characters and no spaces or other formatting characters.
@@ -270,7 +259,7 @@ class PipelineMLGeoPackagerAlgorithm(QgsProcessingAlgorithm):
         """
         This method creates a new instance of the algorithm class.
         """
-        return PipelineMLGeoPackagerAlgorithm(self.iface)
+        return PipelineMLGeoPackagerAlgorithm()
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # Override the 'initAlgorithm' method, which should add
@@ -296,8 +285,8 @@ class PipelineMLGeoPackagerAlgorithm(QgsProcessingAlgorithm):
     # Override the 'processAlgorithm' method, which should implement
     # processing logic and return a map of algorithm outputs.
     def processAlgorithm(self, parameters: 'Dict[str, Any]',
-            context: QgsProcessingContext,
-            feedback: QgsProcessingFeedback) -> 'Dict[str, Any]':
+          context: QgsProcessingContext,
+          feedback: QgsProcessingFeedback) -> 'Dict[str, Any]':
         """
         This method runs the algorithm using the specified parameters.
         """
@@ -346,11 +335,11 @@ class PipelineMLGeoPackagerAlgorithm(QgsProcessingAlgorithm):
         _dataset = None
 
         # Add the GeoPackage layers to the current project.
-        # (This does not work.  More research required.)
-#        for name in list(_layers):
-#            layer_path = gpkg_path + '|layername=' + name
-#            feedback.pushDebugInfo('Loading ' + layer_path)
-#            self.iface.addVectorLayer(layer_path, name, 'ogr')
+        project = context.project()
+        for name in list(_layers):
+            layer_path = gpkg_path + '|layername=' + name
+            details = QgsProcessingContext.LayerDetails(name, project)
+            context.addLayerToLoadOnCompletion(layer_path, details)
 
         # Return the output.
         return {'OUTPUT': gpkg_path}
