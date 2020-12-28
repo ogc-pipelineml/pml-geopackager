@@ -64,6 +64,7 @@ def _reset_globals() -> None:
     global _srs
     _srs = SpatialReference()
 
+
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # Define the '_handle_element_start' function, which is called (by the
 # XML parser) for the start of every element in the PipelineML file.
@@ -88,14 +89,36 @@ def _handle_element_start(name: str, attributes: dict) -> None:
 
     # If 'component' is on top of the stack,
     # this element must represent a feature.
-    # If necessary, create the layer for it.
     if _stack[-1] == 'component' and name not in _layers:
+        # If necessary, create the layer for this feature.
         _feedback.pushInfo('Creating ' + name + ' layer')
         _layers[name] = _dataset.CreateLayer(name, _srs, ogr.wkbUnknown)
+
+    # If 'component' is second from the top of the stack, this element
+    # must represent a field for the current feature.  (The 'location'
+    # element represents the geometry field and is handled separately.)
+    elif (len(_stack) > 2 and _stack[-2] == 'component'
+          and name != 'location'):
+        # If necessary, create the field.
+        layer_name = _stack[-1]
+        if _layers[layer_name].FindFieldIndex(name, 1) < 0:
+            _feedback.pushInfo('Creating ' + name + ' field'
+                               ' in ' + layer_name + ' layer')
+            field_defn = ogr.FieldDefn(name, ogr.OFTString)
+            _layers[layer_name].CreateField(field_defn)
+
+        # If this element has a 'title' attribute, use that
+        # attribute's value as the field value.  (Otherwise,
+        # the field value should be in the character data.)
+        for key in list(attributes):
+            if key == 'title' or key.endswith(':title'):
+                _fields[name] = attributes[key]
+                break
 
     # Push the name of this element onto the stack to
     # indicate that this element is now being processed.
     _stack.append(name)
+
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # Define the '_handle_character_data' function, which is called
@@ -122,9 +145,22 @@ def _handle_character_data(data: str) -> None:
         _srs.SetFromUserInput(name)
         return
 
+    # Any further processing of character data
+    # requires at least four items in the stack.
+    if len(_stack) < 4:
+        return
+
+    # If 'component' is third from the top of the stack,
+    # this element should represent a field for the current
+    # feature, and the character data should be used as the
+    # field value (except for the 'location' element, which
+    # represents the geometry field and is handled separately).
+    if _stack[-3] == 'component' and _stack[-1] != 'location':
+        _fields[_stack[-1]] = data
+
     # If 'location' is third from the top of the stack, this element
     # should represent a set of geospatial coordinates in GML format.
-    if len(_stack) > 3 and _stack[-3] == 'location':
+    elif _stack[-3] == 'location':
         # The element name second from the top
         # should indicate the geometry type.
         gml_type = _stack[-2].split(':', 1)[-1]
@@ -139,7 +175,8 @@ def _handle_character_data(data: str) -> None:
             wkb_type = ogr.wkbUnknown
 
         # Create a geometry object from the GML coordinates.
-        _feedback.pushInfo('Creating ' + gml_type + ' geometry')
+        _feedback.pushInfo('Creating ' + gml_type + ' geometry'
+                           ' for ' + _stack[-4] + ' feature')
         geom = ogr.Geometry(wkb_type)
         pos_list = data.split()
         for i in range(0, len(pos_list), 2):
@@ -147,6 +184,7 @@ def _handle_character_data(data: str) -> None:
             y = float(pos_list[i + 1])
             geom.AddPoint_2D(x, y)
         _fields['location'] = geom
+
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # Define the '_handle_element_end' function, which is called (by the
@@ -173,8 +211,13 @@ def _handle_element_end(name: str) -> None:
         feature_defn = _layers[name].GetLayerDefn()
         feature = ogr.Feature(feature_defn)
 
-        # Set the feature geometry from the 'location' field.
-        feature.SetGeometryDirectly(_fields['location'])
+        # Set the value of each field for the feature.  (Note
+        # that the 'location' field represents the geometry).
+        for key, value in _fields.items():
+            if key == 'location':
+                feature.SetGeometryDirectly(value)
+            else:
+                feature.SetField(key, value)
 
         # Add the feature to the appropriate layer.
         _feedback.pushInfo('Adding feature to ' + name + ' layer')
@@ -191,6 +234,7 @@ def _handle_element_end(name: str) -> None:
     if len(_stack) < 1:
         _feedback.pushDebugInfo('XML parsing completed')
         _event.set()
+
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # Define the 'PipelineMLGeoPackagerAlgorithm' class
