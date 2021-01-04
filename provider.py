@@ -22,7 +22,6 @@ This module defines the 'PipelineMLGeoPackagerProvider' class.
 
 from os import path
 from qgis.core import QgsProcessingProvider
-from qgis.gui import QgisInterface
 from qgis.PyQt.QtGui import QIcon
 from .algorithm import PipelineMLGeoPackagerAlgorithm
 
@@ -35,16 +34,6 @@ class PipelineMLGeoPackagerProvider(QgsProcessingProvider):
     This class implements the processing provider
     for the PipelineML GeoPackager QGIS plugin.
     """
-
-    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-    # Override the '__init__' method (i.e., the constructor), which
-    # is called when a new object of this class is instantiated.
-    def __init__(self, iface: QgisInterface) -> None:
-        """
-        This method saves a reference to the QGIS interface.
-        """
-        super().__init__()
-        self.iface = iface
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # Override the 'id' method, which should return
@@ -82,5 +71,5 @@ class PipelineMLGeoPackagerProvider(QgsProcessingProvider):
         """
         This method loads all algorithms belonging to this provider.
         """
-        algorithm = PipelineMLGeoPackagerAlgorithm(self.iface)
+        algorithm = PipelineMLGeoPackagerAlgorithm()
         self.addAlgorithm(algorithm)
