@@ -104,11 +104,12 @@ def _handle_element_start(name: str, attributes: dict) -> None:
     """
 
     global _feedback
+    global _parser
+    global _pml_size
     global _dataset
-    s = ''
-    for i in range(len(_stack)):
-        s += '.'
-    _feedback.pushDebugInfo(s + name + ' (start)')
+
+    # Update the progress bar.
+    _feedback.setProgress(100 * _parser.CurrentByteIndex / _pml_size)
 
     # If the stack is empty, all that's needed is to
     # push the name of this element onto the stack (to
@@ -134,10 +135,7 @@ def _handle_element_start(name: str, attributes: dict) -> None:
         if _layers[layer_name].FindFieldIndex(name, 1) < 0:
             _feedback.pushInfo('Creating ' + name + ' field'
                                ' in ' + layer_name + ' layer')
-            if name in _types:
-                type = _types[name]
-            else:
-                type = ogr.OFTString
+            type = _types[name] if name in _types else ogr.OFTString
             field_defn = ogr.FieldDefn(name, type)
             _layers[layer_name].CreateField(field_defn)
 
@@ -167,10 +165,11 @@ def _handle_character_data(data: str) -> None:
         return
 
     global _feedback
-    s = ''
-    for i in range(len(_stack)):
-        s += '.'
-    _feedback.pushDebugInfo(s + 'Character Data: "' + data + '"')
+    global _parser
+    global _pml_size
+
+    # Update the progress bar.
+    _feedback.setProgress(100 * _parser.CurrentByteIndex / _pml_size)
 
     # If 'defaultCRS' is on top of the stack, this element specifies
     # the default coordinate reference system for the dataset.
@@ -229,11 +228,12 @@ def _handle_element_end(name: str) -> None:
     """
 
     global _feedback
+    global _parser
+    global _pml_size
     global _fields
-    s = ''
-    for i in range(len(_stack) - 1):
-        s += '.'
-    _feedback.pushDebugInfo(s + name + ' (end)')
+
+    # Update the progress bar.
+    _feedback.setProgress(100 * _parser.CurrentByteIndex / _pml_size)
 
     # If 'component' is second from the top of the
     # stack (just beneath the name of this element),
@@ -266,7 +266,6 @@ def _handle_element_end(name: str) -> None:
     # If the stack is empty, XML parsing
     # is complete.  Signal the main thread.
     if len(_stack) < 1:
-        _feedback.pushDebugInfo('XML parsing completed')
         _event.set()
 
 
@@ -394,15 +393,22 @@ class PipelineMLGeoPackagerAlgorithm(QgsProcessingAlgorithm):
             global _feedback
             _feedback = feedback
 
+            # Determine the size of the PipelineML file
+            # (in order to update the progress bar).
+            global _pml_size
+            _pml_size = pml_file.seek(0, 2)
+            pml_file.seek(0)
+
             # Parse the PipelineML file.  (The handler functions
             # called by the XML parser populate the GeoPackage
             # based on the PipelineML file's contents.)
-            parser = expat.ParserCreate()
-            parser.buffer_text = True
-            parser.StartElementHandler = _handle_element_start
-            parser.CharacterDataHandler = _handle_character_data
-            parser.EndElementHandler = _handle_element_end
-            parser.ParseFile(pml_file)
+            global _parser
+            _parser = expat.ParserCreate()
+            _parser.buffer_text = True
+            _parser.StartElementHandler = _handle_element_start
+            _parser.CharacterDataHandler = _handle_character_data
+            _parser.EndElementHandler = _handle_element_end
+            _parser.ParseFile(pml_file)
 
         # Wait for the XML parsing thread to signal completion.
         while not _event.wait(1) and not feedback.isCanceled():
