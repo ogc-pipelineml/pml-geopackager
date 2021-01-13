@@ -64,6 +64,36 @@ def _reset_globals() -> None:
     global _srs
     _srs = SpatialReference()
 
+    # This dictionary is used to determine the data
+    # types of numeric fields.  Any field not appearing
+    # in this dictionary is taken as text/string.
+    global _types
+    _types = {
+      'length': ogr.OFTReal,
+      'startEngineeringStation': ogr.OFTReal,
+      'endEngineeringStation': ogr.OFTReal,
+      'pressureRating': ogr.OFTReal,
+      'startPosition': ogr.OFTReal,
+      'endPosition': ogr.OFTReal,
+      'compressorPowerRating': ogr.OFTReal,
+      'compressorRatedFlow': ogr.OFTReal,
+      'compressorPressureSuction': ogr.OFTReal,
+      'compressorPressureDischarge': ogr.OFTReal,
+      'linepipeCoverDepthMinimum': ogr.OFTReal,
+      'meterFlowRateMinimum': ogr.OFTReal,
+      'meterFlowRateMaximum': ogr.OFTReal,
+      'pumpPowerRating': ogr.OFTReal,
+      'pumpRatedFlow': ogr.OFTReal,
+      'pumpPressureSuction': ogr.OFTReal,
+      'pumpPressureDischarge': ogr.OFTReal,
+      'teeCenterToEndRun': ogr.OFTReal,
+      'teeCenterToEndOutlet': ogr.OFTReal,
+      'valveActuationTime': ogr.OFTReal,
+      'casingVentCount': ogr.OFTInteger,
+      'coatingLayerNumber': ogr.OFTInteger,
+      'sleevePressureRating': ogr.OFTReal,
+      'pipeconnectorNumber': ogr.OFTInteger}
+
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # Define the '_handle_element_start' function, which is called (by the
@@ -104,7 +134,11 @@ def _handle_element_start(name: str, attributes: dict) -> None:
         if _layers[layer_name].FindFieldIndex(name, 1) < 0:
             _feedback.pushInfo('Creating ' + name + ' field'
                                ' in ' + layer_name + ' layer')
-            field_defn = ogr.FieldDefn(name, ogr.OFTString)
+            if name in _types:
+                type = _types[name]
+            else:
+                type = ogr.OFTString
+            field_defn = ogr.FieldDefn(name, type)
             _layers[layer_name].CreateField(field_defn)
 
         # If this element has a 'title' attribute, use that
