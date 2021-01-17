@@ -330,6 +330,26 @@ class PipelineMLGeoPackagerAlgorithm(QgsProcessingAlgorithm):
         return QIcon(name)
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # Override the 'shortHelpString' method, which should
+    # return a localized string describing what the algorithm
+    # does and its associated parameters and outputs.
+    def shortHelpString(self) -> str:
+        """
+        This method returns a short helper string for the algorithm.
+        """
+        return ('This algorithm reads a PipelineML file and '
+                'translates its contents into a GeoPackage.')
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # Override the 'helpUrl' method.
+    def helpUrl(self) -> str:
+        """
+        This method returns a URL pointing
+        to the algorithm's help page.
+        """
+        return 'https://pipelineml.org/'
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # Override the 'createInstance' method, which should
     # return a pristine instance of the algorithm class.
     def createInstance(self) -> 'PipelineMLGeoPackagerAlgorithm':
