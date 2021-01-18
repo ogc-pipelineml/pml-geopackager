@@ -64,6 +64,36 @@ def _reset_globals() -> None:
     global _srs
     _srs = SpatialReference()
 
+    # This dictionary is used to determine the data
+    # types of numeric fields.  Any field not appearing
+    # in this dictionary is taken as text/string.
+    global _types
+    _types = {
+      'length': ogr.OFTReal,
+      'startEngineeringStation': ogr.OFTReal,
+      'endEngineeringStation': ogr.OFTReal,
+      'pressureRating': ogr.OFTReal,
+      'startPosition': ogr.OFTReal,
+      'endPosition': ogr.OFTReal,
+      'compressorPowerRating': ogr.OFTReal,
+      'compressorRatedFlow': ogr.OFTReal,
+      'compressorPressureSuction': ogr.OFTReal,
+      'compressorPressureDischarge': ogr.OFTReal,
+      'linepipeCoverDepthMinimum': ogr.OFTReal,
+      'meterFlowRateMinimum': ogr.OFTReal,
+      'meterFlowRateMaximum': ogr.OFTReal,
+      'pumpPowerRating': ogr.OFTReal,
+      'pumpRatedFlow': ogr.OFTReal,
+      'pumpPressureSuction': ogr.OFTReal,
+      'pumpPressureDischarge': ogr.OFTReal,
+      'teeCenterToEndRun': ogr.OFTReal,
+      'teeCenterToEndOutlet': ogr.OFTReal,
+      'valveActuationTime': ogr.OFTReal,
+      'casingVentCount': ogr.OFTInteger,
+      'coatingLayerNumber': ogr.OFTInteger,
+      'sleevePressureRating': ogr.OFTReal,
+      'pipeconnectorNumber': ogr.OFTInteger}
+
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # Define the '_handle_element_start' function, which is called (by the
@@ -74,11 +104,12 @@ def _handle_element_start(name: str, attributes: dict) -> None:
     """
 
     global _feedback
+    global _parser
+    global _pml_size
     global _dataset
-    s = ''
-    for i in range(len(_stack)):
-        s += '.'
-    _feedback.pushDebugInfo(s + name + ' (start)')
+
+    # Update the progress bar.
+    _feedback.setProgress(100 * _parser.CurrentByteIndex / _pml_size)
 
     # If the stack is empty, all that's needed is to
     # push the name of this element onto the stack (to
@@ -104,7 +135,8 @@ def _handle_element_start(name: str, attributes: dict) -> None:
         if _layers[layer_name].FindFieldIndex(name, 1) < 0:
             _feedback.pushInfo('Creating ' + name + ' field'
                                ' in ' + layer_name + ' layer')
-            field_defn = ogr.FieldDefn(name, ogr.OFTString)
+            type = _types[name] if name in _types else ogr.OFTString
+            field_defn = ogr.FieldDefn(name, type)
             _layers[layer_name].CreateField(field_defn)
 
         # If this element has a 'title' attribute, use that
@@ -133,10 +165,11 @@ def _handle_character_data(data: str) -> None:
         return
 
     global _feedback
-    s = ''
-    for i in range(len(_stack)):
-        s += '.'
-    _feedback.pushDebugInfo(s + 'Character Data: "' + data + '"')
+    global _parser
+    global _pml_size
+
+    # Update the progress bar.
+    _feedback.setProgress(100 * _parser.CurrentByteIndex / _pml_size)
 
     # If 'defaultCRS' is on top of the stack, this element specifies
     # the default coordinate reference system for the dataset.
@@ -195,11 +228,12 @@ def _handle_element_end(name: str) -> None:
     """
 
     global _feedback
+    global _parser
+    global _pml_size
     global _fields
-    s = ''
-    for i in range(len(_stack) - 1):
-        s += '.'
-    _feedback.pushDebugInfo(s + name + ' (end)')
+
+    # Update the progress bar.
+    _feedback.setProgress(100 * _parser.CurrentByteIndex / _pml_size)
 
     # If 'component' is second from the top of the
     # stack (just beneath the name of this element),
@@ -232,7 +266,6 @@ def _handle_element_end(name: str) -> None:
     # If the stack is empty, XML parsing
     # is complete.  Signal the main thread.
     if len(_stack) < 1:
-        _feedback.pushDebugInfo('XML parsing completed')
         _event.set()
 
 
@@ -295,6 +328,26 @@ class PipelineMLGeoPackagerAlgorithm(QgsProcessingAlgorithm):
         name = path.dirname(__file__)
         name = path.join(name, 'icon.svg')
         return QIcon(name)
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # Override the 'shortHelpString' method, which should
+    # return a localized string describing what the algorithm
+    # does and its associated parameters and outputs.
+    def shortHelpString(self) -> str:
+        """
+        This method returns a short helper string for the algorithm.
+        """
+        return ('This algorithm reads a PipelineML file and '
+                'translates its contents into a GeoPackage.')
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # Override the 'helpUrl' method.
+    def helpUrl(self) -> str:
+        """
+        This method returns a URL pointing
+        to the algorithm's help page.
+        """
+        return 'https://pipelineml.org/'
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # Override the 'createInstance' method, which should
@@ -360,15 +413,22 @@ class PipelineMLGeoPackagerAlgorithm(QgsProcessingAlgorithm):
             global _feedback
             _feedback = feedback
 
+            # Determine the size of the PipelineML file
+            # (in order to update the progress bar).
+            global _pml_size
+            _pml_size = pml_file.seek(0, 2)
+            pml_file.seek(0)
+
             # Parse the PipelineML file.  (The handler functions
             # called by the XML parser populate the GeoPackage
             # based on the PipelineML file's contents.)
-            parser = expat.ParserCreate()
-            parser.buffer_text = True
-            parser.StartElementHandler = _handle_element_start
-            parser.CharacterDataHandler = _handle_character_data
-            parser.EndElementHandler = _handle_element_end
-            parser.ParseFile(pml_file)
+            global _parser
+            _parser = expat.ParserCreate()
+            _parser.buffer_text = True
+            _parser.StartElementHandler = _handle_element_start
+            _parser.CharacterDataHandler = _handle_character_data
+            _parser.EndElementHandler = _handle_element_end
+            _parser.ParseFile(pml_file)
 
         # Wait for the XML parsing thread to signal completion.
         while not _event.wait(1) and not feedback.isCanceled():
