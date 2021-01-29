@@ -3,18 +3,17 @@
 name=PipelineML GeoPackager
 qgisMinimumVersion=3.0
 description=Load a PipelineML file into a GeoPackage
-about=This plugin allows QGIS to natively consume and store PipelineML data for GIS analysis by reading a PipelineML file and translating its contents into a GeoPackage.
-version=0.0
+about=This plugin reads a PipelineML file and translates its contents into a GeoPackage, allowing QGIS to natively consume and store PipelineML data for GIS analysis.
+version=1.0
 author=Jeff Bourdier
 email=jeffbourdier@gmail.com
 repository=https://github.com/ogc-pipelineml/pml-geopackager
 
 ; optional entries
-changelog=(version 0.0)
-  0.0 - Initial development
-experimental=True
+changelog=(version 1.0)
+  1.0 - Initial development
 tags=pipelineml,geopackage
-homepage=https://pipelineml.org/
+homepage=https://pipelineml.org/how-to-install-and-use-the-qgis-geopackager/
 tracker=https://github.com/ogc-pipelineml/pml-geopackager/issues
-icon=icon.svg
+icon=img/icon.svg
 hasProcessingProvider=yes

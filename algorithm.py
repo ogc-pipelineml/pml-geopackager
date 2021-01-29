@@ -326,7 +326,7 @@ class PipelineMLGeoPackagerAlgorithm(QgsProcessingAlgorithm):
         This method returns an icon for the algorithm.
         """
         name = path.dirname(__file__)
-        name = path.join(name, 'icon.svg')
+        name = path.join(name, 'img', 'icon.svg')
         return QIcon(name)
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -347,7 +347,7 @@ class PipelineMLGeoPackagerAlgorithm(QgsProcessingAlgorithm):
         This method returns a URL pointing
         to the algorithm's help page.
         """
-        return 'https://pipelineml.org/'
+        return 'https://pipelineml.org/how-to-install-and-use-the-qgis-geopackager/'
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # Override the 'createInstance' method, which should
