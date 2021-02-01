@@ -61,7 +61,7 @@ class PipelineMLGeoPackagerProvider(QgsProcessingProvider):
         This method returns an icon for the provider.
         """
         name = path.dirname(__file__)
-        name = path.join(name, 'pml.svg')
+        name = path.join(name, 'img', 'pml.svg')
         return QIcon(name)
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
